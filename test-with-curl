@@ -1,0 +1,1 @@
+curl -X POST http://192.168.1.67:5000/token -H 'Content-Type: application/json' -d '{"login":"my_login","password":"my_password"}'

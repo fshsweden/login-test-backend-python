@@ -1,11 +1,11 @@
 # ------------------------------------------------------------------------------
 #
 # Test with: 
-#   1) curl -X POST http://192.168.1.67:5000/token -H 'Content-Type: application/json' -d '{"email":"test@test.se","password":"123"}'
+#   1) curl -X POST http://localhost:5000/token -H 'Content-Type: application/json' -d '{"email":"test@test.se","password":"123"}'
 #
 #   response: {"access_token":"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJmcmVzaCI6ZmFsc2UsImlhdCI6MTY1NDUwMzAxMSwianRpIjoiODA3YjY0MDktNDI2MS00OGZmLTkzODMtMGUxYmUwNGYzODBjIiwidHlwZSI6ImFjY2VzcyIsInN1YiI6InRlc3RAdGVzdC5zZSIsIm5iZiI6MTY1NDUwMzAxMSwiZXhwIjoxNjU0NTAzMDQxfQ.dKX7xSsNb_UJ29FSUOrG56a398KnfrGvaI3SRt6KcaE"}
 #
-#   2) curl http://192.168.1.67:5000/profile -X GET -H "Authorization: Bearer <token here>"
+#   2) curl http://localhost:5000/profile -X GET -H "Authorization: Bearer <token here>"
 #
 # ------------------------------------------------------------------------------
 
@@ -41,7 +41,7 @@ def refresh_expiring_jwts(response):
 
 @api.route('/login', methods=["POST"])
 @cross_origin()
-def create_token():
+def login():
     
     # Really simple authorization!
     email = request.json.get("email", None)

@@ -19,11 +19,13 @@ from flask_cors import CORS, cross_origin
 
 api = Flask(__name__)
 api.config["JWT_SECRET_KEY"] = "slemmig-torsk"
-api.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(seconds=600) # 10 minutes
+api.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(seconds=15) # 10 minutes
 jwt = JWTManager(api)
 CORS(api)
 
-# Generic Exception Handler
+#
+# Generic Exception Handler returning JSON
+#
 @api.errorhandler(HTTPException)
 def handle_exception(e):
     """Return JSON instead of HTML for HTTP errors."""
@@ -39,23 +41,38 @@ def handle_exception(e):
     return response, e.code
 
 
+#
+# This is run after each request.
+# It will check the JWT token, and if it is expired, it will generate a new one
+# and return it in the response header.
+#
 @api.after_request
 def refresh_expiring_jwts(response):
     try:
-        exp_timestamp = get_jwt()["exp"]
+        exp_timestamp = float(get_jwt()["exp"])
+        #print(f"EXP_TIMESTAMP IS: {exp_timestamp}")
         now = datetime.now(timezone.utc)
-        target_timestamp = datetime.timestamp(now + timedelta(seconds=600))
+        target_timestamp = datetime.timestamp(now)
+        #print(f"TARGET TIMESTAMP IS: {target_timestamp}")
+        #print(f"DIFF IS target_timestamp - exp_timestamp: {target_timestamp - exp_timestamp}")
         if target_timestamp > exp_timestamp:
+            #print("TOKEN EXPIRED - GENERATING NEW TOKEN!")
             access_token = create_access_token(identity=get_jwt_identity())
             data = response.get_json()
             if type(data) is dict:
+                #print(f"data before adding access_token: {data}")
                 data["access_token"] = access_token 
+                #print(f"NEW TOKEN IS: {access_token}")
                 response.data = json.dumps(data)
         return response
     except (RuntimeError, KeyError):
         # Case where there is not a valid JWT. Just return the original respone
         return response
 
+
+#
+# Login endpoint handler
+#
 @api.route('/login', methods=["POST"])
 @cross_origin()
 def login():
@@ -71,24 +88,47 @@ def login():
     response = {"access_token":access_token}
     return response
 
+#
+# Logout endpoint handler
+#
 @api.route("/logout", methods=["POST"])
 @cross_origin()
 def logout():
-    response = jsonify({"msg": "logout successful"})
-    unset_jwt_cookies(response)
-    return response
+    response_body = jsonify({"msg": "logout successful"})
+    unset_jwt_cookies(response_body)
+    return response_body, 200
 
+#
+# Profile endpoint handler (protected)
+#
 @api.route('/profile')
 @cross_origin()
 @jwt_required()
 def my_profile():
     response_body = {
-        "endpointname": "protected",
-        "description" :"This endpoint is protected!",
+        "endpointname": "profile",
+        "description" :"/profile",
         "about": "This is the profile!"
     }
 
-    return response_body
+    return response_body, 200
 
+#
+# Status endpoint handler (protected)
+#
+@api.route('/status')
+@cross_origin()
+@jwt_required()
+def status_quo():
+    response_body = {
+        "endpointname": "status",
+        "description" :"/status",
+        "about": "Quo!"
+    }
+    return response_body, 200
+
+#
+# Main
+#
 if __name__ == "__main__":
   api.run(host="0.0.0.0", port=5001, debug=True)

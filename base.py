@@ -42,6 +42,8 @@ def handle_exception(e):
     return response, e.code
 
 
+# This hack excludes /status from JWT token validation in the after_request handler
+# see: https://stackoverflow.com/questions/19574694/flask-hit-decorator-before-before-request-signal-fires
 def exclude_from_jwt_token_logic(func):
     func._exclude_from_jwt_token_logic = True
     return func

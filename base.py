@@ -19,7 +19,7 @@ from flask_cors import CORS, cross_origin
 
 api = Flask(__name__)
 api.config["JWT_SECRET_KEY"] = "slemmig-torsk"
-api.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(seconds=15) # 10 minutes
+api.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(minutes=5)
 jwt = JWTManager(api)
 CORS(api)
 
@@ -28,6 +28,7 @@ CORS(api)
 #
 @api.errorhandler(HTTPException)
 def handle_exception(e):
+    print(f"Handling exception {e}")
     """Return JSON instead of HTML for HTTP errors."""
     # start with the correct headers and status code from the error
     response = e.get_response()
@@ -41,6 +42,10 @@ def handle_exception(e):
     return response, e.code
 
 
+def exclude_from_jwt_token_logic(func):
+    func._exclude_from_jwt_token_logic = True
+    return func
+
 #
 # This is run after each request.
 # It will check the JWT token, and if it is expired, it will generate a new one
@@ -49,21 +54,27 @@ def handle_exception(e):
 @api.after_request
 def refresh_expiring_jwts(response):
     try:
-        exp_timestamp = float(get_jwt()["exp"])
-        #print(f"EXP_TIMESTAMP IS: {exp_timestamp}")
-        now = datetime.now(timezone.utc)
-        target_timestamp = datetime.timestamp(now)
-        #print(f"TARGET TIMESTAMP IS: {target_timestamp}")
-        #print(f"DIFF IS target_timestamp - exp_timestamp: {target_timestamp - exp_timestamp}")
-        if target_timestamp > exp_timestamp:
-            #print("TOKEN EXPIRED - GENERATING NEW TOKEN!")
-            access_token = create_access_token(identity=get_jwt_identity())
-            data = response.get_json()
-            if type(data) is dict:
-                #print(f"data before adding access_token: {data}")
-                data["access_token"] = access_token 
-                #print(f"NEW TOKEN IS: {access_token}")
-                response.data = json.dumps(data)
+        
+        view_func = api.view_functions[request.endpoint]
+        if  not hasattr(view_func, '_exclude_from_jwt_token_logic'):
+            exp_timestamp = float(get_jwt()["exp"])
+            print(f"EXP_TIMESTAMP IS: {exp_timestamp}")
+            now = datetime.now(timezone.utc)
+            target_timestamp = datetime.timestamp(now + timedelta(seconds=60))  # simulate 10 seconds in the future
+            print(f"TARGET TIMESTAMP IS: {target_timestamp}")
+            print(f"DIFF IS target_timestamp - exp_timestamp: {target_timestamp - exp_timestamp}")
+            if target_timestamp > exp_timestamp:
+                print("TOKEN EXPIRED - GENERATING NEW TOKEN!")
+                access_token = create_access_token(identity=get_jwt_identity())
+                data = response.get_json()
+                if type(data) is dict:
+                    print(f"data before adding access_token: {data}")
+                    data["access_token"] = access_token 
+                    print(f"UPDATING TOKEN TO: {access_token} Full data is {data}")
+                    response.data = json.dumps(data)
+                else:
+                    print("DATA IS NOT A DICT! It is a {}".format(type(data)))
+
         return response
     except (RuntimeError, KeyError):
         # Case where there is not a valid JWT. Just return the original respone
@@ -119,6 +130,7 @@ def my_profile():
 @api.route('/status')
 @cross_origin()
 @jwt_required()
+@exclude_from_jwt_token_logic
 def status_quo():
     response_body = {
         "endpointname": "status",
